@@ -1,88 +1,100 @@
+import os
+import time
+import json
+import redis
+import psycopg2
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-import psycopg2
-import redis
-import json
-import time
-import os
 
 app = Flask(__name__)
 CORS(app)
 
-redis_client = redis.Redis(host=os.environ.get('REDIS_HOST', 'redis'), port=6379, decode_responses=True)
+# Koneksi Redis: Menggunakan DATABASE_URL dari Railway jika ada
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')
+redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
 def get_db_connection():
-    conn = psycopg2.connect(
-        host=os.environ.get('DB_HOST', 'db'),
-        database=os.environ.get('DB_NAME', 'todos_db'),
-        user=os.environ.get('DB_USER', 'postgres'),
-        password=os.environ.get('DB_PASSWORD', 'password')
-    )
+    # Menggunakan DATABASE_URL untuk PostgreSQL agar otomatis konek di Railway
+    # Format biasanya: postgresql://user:password@host:port/database
+    db_url = os.environ.get('DATABASE_URL')
+    conn = psycopg2.connect(db_url)
     return conn
 
 def init_db():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute('''
-        CREATE TABLE IF NOT EXISTS todos (
-            id SERIAL PRIMARY KEY,
-            task VARCHAR(255) NOT NULL,
-            completed BOOLEAN DEFAULT FALSE
-        );
-    ''')
-    conn.commit()
-    cur.close()
-    conn.close()
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS todos (
+                id SERIAL PRIMARY KEY,
+                task VARCHAR(255) NOT NULL,
+                completed BOOLEAN DEFAULT FALSE
+            );
+        ''')
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("Database initialized successfully!")
+    except Exception as e:
+        print(f"Error initializing database: {e}")
 
 @app.route('/stats', methods=['GET'])
 def get_stats():
-    cached_stats = redis_client.get('stats')
-    if cached_stats:
-        return jsonify({'data': json.loads(cached_stats), 'source': 'cache'}), 200
+    try:
+        cached_stats = redis_client.get('stats')
+        if cached_stats:
+            return jsonify({'data': json.loads(cached_stats), 'source': 'cache'}), 200
 
-    conn = get_db_connection()
-    cur = conn.cursor()
-    
-    cur.execute('SELECT COUNT(*) FROM todos')
-    total = cur.fetchone()[0]
-    
-    cur.execute('SELECT COUNT(*) FROM todos WHERE completed = TRUE')
-    completed = cur.fetchone()[0]
-    
-    cur.close()
-    conn.close()
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute('SELECT COUNT(*) FROM todos')
+        total = cur.fetchone()[0]
+        
+        cur.execute('SELECT COUNT(*) FROM todos WHERE completed = TRUE')
+        completed = cur.fetchone()[0]
+        
+        cur.close()
+        conn.close()
 
-    stats = {
-        'total': total,
-        'completed': completed,
-        'pending': total - completed
-    }
+        stats = {
+            'total': total,
+            'completed': completed,
+            'pending': total - completed
+        }
 
-    redis_client.setex('stats', 30, json.dumps(stats))
-
-    return jsonify({'data': stats, 'source': 'database'}), 200
+        redis_client.setex('stats', 30, json.dumps(stats))
+        return jsonify({'data': stats, 'source': 'database'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/todos', methods=['GET', 'POST'])
 def handle_todos():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    if request.method == 'POST':
-        data = request.get_json()
-        cur.execute('INSERT INTO todos (task) VALUES (%s) RETURNING id', (data['task'],))
-        new_id = cur.fetchone()[0]
-        conn.commit()
-        redis_client.delete('stats')
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        if request.method == 'POST':
+            data = request.get_json()
+            cur.execute('INSERT INTO todos (task) VALUES (%s) RETURNING id', (data['task'],))
+            new_id = cur.fetchone()[0]
+            conn.commit()
+            redis_client.delete('stats')
+            cur.close()
+            conn.close()
+            return jsonify({'id': new_id, 'task': data['task'], 'completed': False}), 201
+        
+        cur.execute('SELECT id, task, completed FROM todos')
+        todos = [{'id': row[0], 'task': row[1], 'completed': row[2]} for row in cur.fetchall()]
         cur.close()
         conn.close()
-        return jsonify({'id': new_id, 'task': data['task'], 'completed': False}), 201
-    
-    cur.execute('SELECT id, task, completed FROM todos')
-    todos = [{'id': row[0], 'task': row[1], 'completed': row[2]} for row in cur.fetchall()]
-    cur.close()
-    conn.close()
-    return jsonify(todos), 200
+        return jsonify(todos), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    time.sleep(5)
+    # Beri waktu database untuk ready
+    time.sleep(3)
     init_db()
-    app.run(host='0.0.0.0', port=8080, debug=True)
+    # PENTING: Gunakan port dari environment variable Railway
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
