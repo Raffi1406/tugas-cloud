@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:5000';
+const API_URL = 'https://tugas-cloud-production.up.railway.app';
 
 async function fetchStats() {
     const response = await fetch(`${API_URL}/stats`);
