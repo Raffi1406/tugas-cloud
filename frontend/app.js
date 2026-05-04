@@ -1,4 +1,3 @@
-// Ganti dengan URL backend kamu yang asli
 const API_URL = 'https://tugas-cloud-production.up.railway.app';
 
 async function fetchTodos() {
