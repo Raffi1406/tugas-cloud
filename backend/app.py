@@ -2,96 +2,96 @@ import os
 import time
 import json
 import redis
-import psycopg2
+import pymysql
+from urllib.parse import urlparse
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
 
-# Inisialisasi Redis
-REDIS_URL = os.environ.get('REDIS_URL')
-redis_client = redis.from_url(REDIS_URL, decode_responses=True) if REDIS_URL else None
-
 def get_db_connection():
-    # Menggunakan DATABASE_URL otomatis dari Railway
-    return psycopg2.connect(os.environ.get('DATABASE_URL'))
+    db_url = os.environ.get('MYSQL_URL')
+    url = urlparse(db_url)
+    return pymysql.connect(
+        host=url.hostname,
+        user=url.username,
+        password=url.password,
+        database=url.path[1:],
+        port=url.port or 3306
+    )
 
 def init_db():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute('''
-            CREATE TABLE IF NOT EXISTS todos (
-                id SERIAL PRIMARY KEY,
-                task VARCHAR(255) NOT NULL,
-                completed BOOLEAN DEFAULT FALSE
+            CREATE TABLE IF NOT EXISTS rentals (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                nama_penyewa VARCHAR(255) NOT NULL,
+                nomor_ps INT NOT NULL,
+                durasi INT NOT NULL,
+                status VARCHAR(50) DEFAULT 'Aktif'
             );
         ''')
         conn.commit()
         cur.close()
         conn.close()
-        print("Database initialized successfully")
-    except Exception as e:
-        print(f"Init DB Error: {e}")
+    except:
+        pass
 
-@app.route('/todos', methods=['GET', 'POST'])
-def handle_todos():
-    conn = None
+REDIS_URL = os.environ.get('REDIS_URL')
+redis_client = redis.from_url(REDIS_URL, decode_responses=True) if REDIS_URL else None
+
+@app.route('/rentals', methods=['GET', 'POST'])
+def handle_rentals():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        
         if request.method == 'POST':
             data = request.get_json()
-            if not data or 'task' not in data:
-                return jsonify({"error": "No task provided"}), 400
-                
-            cur.execute('INSERT INTO todos (task) VALUES (%s) RETURNING id, task, completed', (data['task'],))
-            new_row = cur.fetchone()
+            cur.execute('INSERT INTO rentals (nama_penyewa, nomor_ps, durasi) VALUES (%s, %s, %s)', 
+                       (data['nama'], data['ps'], data['durasi']))
+            new_id = cur.lastrowid
             conn.commit()
             if redis_client:
-                redis_client.delete('stats')
-            return jsonify({'id': new_row[0], 'task': new_row[1], 'completed': new_row[2]}), 201
-
-        # Jika GET
-        cur.execute('SELECT id, task, completed FROM todos ORDER BY id DESC')
-        todos = [{'id': row[0], 'task': row[1], 'completed': row[2]} for row in cur.fetchall()]
-        cur.close()
-        return jsonify(todos), 200 # Mengembalikan ARRAY []
-        
-    except Exception as e:
-        print(f"Server Error: {e}")
-        return jsonify([]), 500 # Tetap kirim array kosong agar frontend tidak "Format data salah"
-    finally:
-        if conn:
+                redis_client.delete('stats_ps')
+            cur.close()
             conn.close()
+            return jsonify({'id': new_id, 'nama': data['nama'], 'ps': data['ps'], 'durasi': data['durasi']}), 201
+        
+        cur.execute('SELECT id, nama_penyewa, nomor_ps, durasi, status FROM rentals ORDER BY id DESC')
+        rentals = [{'id': r[0], 'nama': r[1], 'ps': r[2], 'durasi': r[3], 'status': r[4]} for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+        return jsonify(rentals), 200
+    except:
+        return jsonify([]), 500
 
 @app.route('/stats', methods=['GET'])
 def get_stats():
     try:
         if redis_client:
-            cached = redis_client.get('stats')
+            cached = redis_client.get('stats_ps')
             if cached:
                 return jsonify({'data': json.loads(cached), 'source': 'cache'}), 200
 
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute('SELECT COUNT(*) FROM todos')
+        cur.execute('SELECT COUNT(*) FROM rentals')
         total = cur.fetchone()[0]
-        cur.execute('SELECT COUNT(*) FROM todos WHERE completed = TRUE')
-        completed = cur.fetchone()[0]
         cur.close()
         conn.close()
 
-        stats = {'total': total, 'completed': completed, 'pending': total - completed}
+        stats = {'total_rental': total}
         if redis_client:
-            redis_client.setex('stats', 30, json.dumps(stats))
+            redis_client.setex('stats_ps', 30, json.dumps(stats))
         return jsonify({'data': stats, 'source': 'database'}), 200
     except:
-        return jsonify({'data': {'total': 0, 'completed': 0, 'pending': 0}}), 200
+        return jsonify({'data': {'total_rental': 0}}), 200
 
 if __name__ == '__main__':
+    time.sleep(3)
     init_db()
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
