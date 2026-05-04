@@ -1,85 +1,57 @@
-// Pastikan URL menggunakan HTTPS dan sesuai dengan URL backend kamu
+// Ganti dengan URL backend kamu yang asli
 const API_URL = 'https://tugas-cloud-production.up.railway.app';
 
-// Fungsi untuk mengambil dan menampilkan statistik
-async function fetchStats() {
-    try {
-        const response = await fetch(`${API_URL}/stats`);
-        const result = await response.json();
-        const stats = result.data;
-        
-        document.getElementById('stats-container').innerHTML = `
-            <div style="background: #eef2f7; padding: 10px; border-radius: 8px; margin-bottom: 15px;">
-                <strong>Statistik:</strong><br>
-                Total: ${stats.total} | Selesai: ${stats.completed} | Pending: ${stats.pending} <br>
-                <small>Sumber data: ${result.source}</small>
-            </div>
-        `;
-    } catch (error) {
-        console.error("Gagal mengambil statistik:", error);
-    }
-}
-
-// Fungsi untuk mengambil dan menampilkan daftar tugas
 async function fetchTodos() {
     try {
-        const response = await fetch(`${API_URL}/todos`);
-        const todos = await response.json();
+        const res = await fetch(`${API_URL}/todos`);
+        const data = await res.json();
         const list = document.getElementById('todo-list');
-        
-        list.innerHTML = ''; // Kosongkan daftar lama
-        
-        if (todos.length === 0) {
-            list.innerHTML = '<li>Belum ada tugas.</li>';
-            return;
-        }
+        list.innerHTML = '';
 
-        todos.forEach(todo => {
-            list.innerHTML += `
-                <li style="display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #ddd;">
-                    <span>${todo.task}</span>
-                    <span>${todo.completed ? '✅' : '⏳'}</span>
-                </li>
-            `;
+        if (!Array.isArray(data)) throw new Error("Format data salah");
+
+        data.forEach(todo => {
+            const li = document.createElement('li');
+            li.style = "padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between;";
+            li.innerHTML = `<span>${todo.task}</span> <span>${todo.completed ? '✅' : '⏳'}</span>`;
+            list.appendChild(li);
         });
-    } catch (error) {
-        console.error("Gagal mengambil daftar tugas:", error);
-        document.getElementById('todo-list').innerHTML = '<li>Gagal terhubung ke server.</li>';
+    } catch (e) {
+        document.getElementById('todo-list').innerHTML = `<li style="color:red">Error: ${e.message}</li>`;
     }
 }
 
-// Fungsi untuk menambah tugas baru
 async function addTask() {
     const input = document.getElementById('task-input');
-    const task = input.value;
-    
-    if (!task) {
-        alert("Isi tugasnya dulu, Raffi!");
-        return;
-    }
-    
+    if (!input.value) return;
+
     try {
-        const response = await fetch(`${API_URL}/todos`, {
+        const res = await fetch(`${API_URL}/todos`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ task })
+            body: JSON.stringify({ task: input.value })
         });
 
-        if (response.ok) {
-            input.value = ''; // Kosongkan input setelah berhasil
-            
-            // KUNCI UTAMA: Panggil ulang fungsi fetch agar tampilan update otomatis
-            await fetchTodos(); 
-            await fetchStats();
-        } else {
-            alert("Gagal menambah tugas ke server.");
+        if (res.ok) {
+            input.value = '';
+            await fetchTodos(); // Langsung update daftar
+            updateStats();
         }
-    } catch (error) {
-        console.error("Error saat menambah tugas:", error);
-        alert("Tidak bisa terhubung ke backend.");
+    } catch (e) {
+        alert("Gagal menambah tugas");
     }
 }
 
-// Jalankan fungsi saat halaman pertama kali dibuka
+async function updateStats() {
+    try {
+        const res = await fetch(`${API_URL}/stats`);
+        const result = await res.json();
+        const s = result.data;
+        document.getElementById('stats-container').innerHTML = 
+            `<small>Total: ${s.total} | Selesai: ${s.completed} | Pending: ${s.pending}</small>`;
+    } catch (e) { console.log("Stats error"); }
+}
+
+// Jalankan saat load awal
 fetchTodos();
-fetchStats();
+updateStats();
