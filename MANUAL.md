@@ -1,24 +1,16 @@
-# Manual Penggunaan Aplikasi Todo List
+# Rental PS 3 Genuk City
 
-## Identitas
-*   **Nama:** Raffi Ahmad
-*   **NIM:** 32602300048 
+Aplikasi berbasis web untuk manajemen penyewaan PlayStation dengan arsitektur Microservices. Aplikasi ini melacak data penyewa, durasi sewa, nomor PS, dan menghitung total harga secara otomatis (Tarif: Rp5.000/jam).
 
-## Link Kode Aplikasi
-*   **GitHub Repository:** [Masukkan Link GitHub Anda di sini]
+## Teknologi yang Digunakan
+- **Frontend:** HTML, CSS, Vanilla JavaScript (Nginx)
+- **Backend:** Python, Flask, Flask-CORS
+- **Database:** MySQL
+- **Cache:** Redis
+- **Infrastruktur:** Docker & Docker Compose
 
-## Cara Menjalankan (Deployment)
-1.  Pastikan Docker dan Docker Compose sudah terinstall.
-2.  Buka terminal pada direktori root proyek.
-3.  Jalankan perintah `docker-compose up -d --build`.
-4.  Tunggu hingga seluruh container (db, redis, backend, frontend) berstatus running.
-
-## Cara Mengakses melalui Cloud Emulator (Redfinger)
-1.  Jalankan tunnel menggunakan Ngrok ke port frontend dengan perintah `ngrok http 80`.
-2.  Salin URL publik yang diberikan oleh Ngrok (misal: `https://abcd-123.ngrok-free.app`).
-3.  Buka aplikasi Redfinger, masuk ke browser di dalam emulator, dan paste URL tersebut.
-4.  Aplikasi Todo List siap digunakan.
-
-## Cara Penggunaan Fitur
-*   **Menambah Tugas:** Ketikkan nama tugas pada kolom input lalu klik tombol "Tambah".
-*   **Statistik Cache:** Aplikasi otomatis menyimpan statistik tugas (Total, Selesai, Pending) menggunakan layanan Redis (Cache) selama 30 detik untuk mengoptimalkan database PostgreSQL.
+## Struktur Proyek
+- `/frontend`: Berisi UI aplikasi dan logika untuk mengambil/mengirim data ke API.
+- `/backend`: Berisi REST API yang menghubungkan frontend dengan database dan cache.
+- `docker-compose.yml`: File konfigurasi untuk menjalankan seluruh layanan secara lokal dengan Docker.
+- `MANUAL.md`: Panduan instalasi dan penggunaan aplikasi.
