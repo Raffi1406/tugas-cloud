@@ -7,19 +7,23 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# app.py (Bagian Konfigurasi)
+# app.py
+# Ambil variabel langsung dari nama bawaan Railway
 DB_HOST = os.environ.get('MYSQLHOST', 'localhost')
 DB_USER = os.environ.get('MYSQLUSER', 'root')
 DB_PASSWORD = os.environ.get('MYSQLPASSWORD', '')
-DB_NAME = os.environ.get('DB_NAME', 'railway') # Kita pake DB_NAME yang baru lu bikin tadi
+DB_NAME = os.environ.get('MYSQLDATABASE', 'railway') # Pake MYSQLDATABASE
 DB_PORT = int(os.environ.get('MYSQLPORT', 3306))
+
 def get_db_connection():
     return pymysql.connect(
         host=DB_HOST,
         user=DB_USER,
         password=DB_PASSWORD,
         database=DB_NAME,
-        port=DB_PORT
+        port=DB_PORT,
+        charset='utf8mb4',
+        cursorclass=pymysql.cursors.DictCursor # Biar datanya rapi bentuk JSON
     )
 
 def init_db():
