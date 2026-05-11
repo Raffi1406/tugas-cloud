@@ -1,5 +1,5 @@
-// const API_URL = 'https://tugas-cloud-production.up.railway.app';
-const API_URL = 'http://127.0.0.1:8080';
+const API_URL = 'https://tugas-cloud-production.up.railway.app';
+// const API_URL = 'http://127.0.0.1:8080';
 
 // Variabel global untuk menyimpan daftar PS yang sedang dipakai
 let activePS = []; 
