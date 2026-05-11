@@ -67,8 +67,11 @@ def handle_rentals():
             durasi = int(data['durasi'])
             total_harga = durasi * 5000
             
-            cur.execute('INSERT INTO rentals (nama_penyewa, nomor_ps, durasi, total_harga) VALUES (%s, %s, %s, %s)', 
-                       (data['nama'], data['ps'], durasi, total_harga))
+            # Kita sebutkan nama kolomnya secara eksplisit biar nggak bentrok
+            sql = "INSERT INTO rentals (nama_penyewa, nomor_ps, durasi, total_harga, status) VALUES (%s, %s, %s, %s, %s)"
+            val = (data['nama'], data['ps'], durasi, total_harga, 'Aktif')
+            
+            cur.execute(sql, val)
             new_id = cur.lastrowid
             conn.commit()
             cur.close()
@@ -81,9 +84,9 @@ def handle_rentals():
         conn.close()
         return jsonify(rentals), 200
     except Exception as e:
-        error_msg = str(e)
-        print(f"Error handling rentals: {error_msg}")
-        return jsonify({'error': error_msg}), 500
+        # Biar ketauan di Log Railway lu errornya apa
+        print(f"ERROR BANGET: {str(e)}") 
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/stats', methods=['GET'])
 def get_stats():

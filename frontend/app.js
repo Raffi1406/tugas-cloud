@@ -8,6 +8,7 @@ function formatRupiah(angka) {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(angka);
 }
 
+
 async function fetchRentals() {
     try {
         const res = await fetch(`${API_URL}/rentals`);
