@@ -7,13 +7,12 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# Konfigurasi Database (Otomatis menyesuaikan XAMPP atau Railway)
-DB_HOST = os.environ.get('DB_HOST', 'localhost')
-DB_USER = os.environ.get('DB_USER', 'root')
-DB_PASSWORD = os.environ.get('DB_PASSWORD', '')
-DB_NAME = os.environ.get('DB_NAME', 'rental_ps')
-DB_PORT = int(os.environ.get('DB_PORT', 3306)) # Tambahan agar Railway tidak bingung
-
+# app.py (Bagian Konfigurasi)
+DB_HOST = os.environ.get('MYSQLHOST', 'localhost')
+DB_USER = os.environ.get('MYSQLUSER', 'root')
+DB_PASSWORD = os.environ.get('MYSQLPASSWORD', '')
+DB_NAME = os.environ.get('DB_NAME', 'railway') # Kita pake DB_NAME yang baru lu bikin tadi
+DB_PORT = int(os.environ.get('MYSQLPORT', 3306))
 def get_db_connection():
     return pymysql.connect(
         host=DB_HOST,
