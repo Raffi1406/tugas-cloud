@@ -7,11 +7,12 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# Konfigurasi MySQL Standar (Sesuaikan dengan setup XAMPP kamu)
+# Konfigurasi Database (Otomatis menyesuaikan XAMPP atau Railway)
 DB_HOST = os.environ.get('DB_HOST', 'localhost')
 DB_USER = os.environ.get('DB_USER', 'root')
-DB_PASSWORD = os.environ.get('DB_PASSWORD', '') # Default XAMPP biasanya passwordnya kosong
-DB_NAME = os.environ.get('DB_NAME', 'rental_ps') # Pastikan database rental_ps sudah ada di phpMyAdmin
+DB_PASSWORD = os.environ.get('DB_PASSWORD', '')
+DB_NAME = os.environ.get('DB_NAME', 'rental_ps')
+DB_PORT = int(os.environ.get('DB_PORT', 3306)) # Tambahan agar Railway tidak bingung
 
 def get_db_connection():
     return pymysql.connect(
@@ -19,7 +20,7 @@ def get_db_connection():
         user=DB_USER,
         password=DB_PASSWORD,
         database=DB_NAME,
-        port=3306
+        port=DB_PORT
     )
 
 def init_db():
@@ -82,7 +83,6 @@ def handle_rentals():
     except Exception as e:
         error_msg = str(e)
         print(f"Error handling rentals: {error_msg}")
-        # Kirimkan detail error agar mudah di-debug jika gagal
         return jsonify({'error': error_msg}), 500
 
 @app.route('/stats', methods=['GET'])
@@ -104,7 +104,6 @@ def get_stats():
         return jsonify({'data': {'total_rental': 0, 'total_pendapatan': 0}}), 200
 
 if __name__ == '__main__':
-    # time.sleep(3) # Dihapus saja agar script langsung jalan
     init_db()
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port, debug=True)
