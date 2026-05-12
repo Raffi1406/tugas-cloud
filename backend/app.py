@@ -1,115 +1,177 @@
-import os
-import time
-import pymysql
-from flask import Flask, jsonify, request
+from flask import Flask, request, jsonify
 from flask_cors import CORS
+import pymysql
+import os
 
 app = Flask(__name__)
 CORS(app)
 
-# app.py
-# Ambil variabel langsung dari nama bawaan Railway
-DB_HOST = os.environ.get('MYSQLHOST', 'localhost')
-DB_USER = os.environ.get('MYSQLUSER', 'root')
-DB_PASSWORD = os.environ.get('MYSQLPASSWORD', '')
-DB_NAME = os.environ.get('MYSQLDATABASE', 'railway') # Pake MYSQLDATABASE
-DB_PORT = int(os.environ.get('MYSQLPORT', 3306))
+# =========================
+# DATABASE CONFIG RAILWAY
+# =========================
+
+DB_HOST = os.getenv("MYSQLHOST")
+DB_USER = os.getenv("MYSQLUSER")
+DB_PASSWORD = os.getenv("MYSQLPASSWORD")
+DB_NAME = os.getenv("MYSQLDATABASE")
+DB_PORT = int(os.getenv("MYSQLPORT", 3306))
+
+
+# =========================
+# DATABASE CONNECTION
+# =========================
 
 def get_db_connection():
-    return pymysql.connect(
-        host=DB_HOST,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database=DB_NAME,
-        port=DB_PORT,
-        charset='utf8mb4',
-        cursorclass=pymysql.cursors.DictCursor # Biar datanya rapi bentuk JSON
-    )
+    try:
+        conn = pymysql.connect(
+            host=DB_HOST,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            database=DB_NAME,
+            port=DB_PORT,
+            cursorclass=pymysql.cursors.DictCursor
+        )
 
-def init_db():
+        print("DATABASE CONNECTED")
+        return conn
+
+    except Exception as e:
+        print("DATABASE ERROR:", str(e))
+        raise e
+
+
+# =========================
+# HOME ROUTE
+# =========================
+
+@app.route('/')
+def home():
+    return jsonify({
+        "message": "Backend Flask Railway Running"
+    })
+
+
+# =========================
+# GET ALL RENTALS
+# =========================
+
+@app.route('/rentals', methods=['GET'])
+def get_rentals():
+
     try:
         conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS rentals (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                nama_penyewa VARCHAR(255) NOT NULL,
-                nomor_ps INT NOT NULL,
-                durasi INT NOT NULL,
-                total_harga INT NOT NULL,
-                status VARCHAR(50) DEFAULT 'Aktif'
-            );
-        ''')
-        
-        cur.execute('SELECT COUNT(*) FROM rentals')
-        if cur.fetchone()[0] == 0:
-            dummy_data = [
-                ('Budi', 1, 3, 15000, 'Aktif'),
-                ('Andi', 4, 2, 10000, 'Aktif'),
-                ('Citra', 2, 5, 25000, 'Selesai')
-            ]
-            cur.executemany('''
-                INSERT INTO rentals (nama_penyewa, nomor_ps, durasi, total_harga, status) 
-                VALUES (%s, %s, %s, %s, %s)
-            ''', dummy_data)
-            
+        cursor = conn.cursor()
+
+        query = "SELECT * FROM rentals"
+        cursor.execute(query)
+
+        rentals = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        return jsonify(rentals)
+
+    except Exception as e:
+        print("GET ERROR:", str(e))
+
+        return jsonify({
+            "error": str(e)
+        }), 500
+
+
+# =========================
+# ADD RENTAL
+# =========================
+
+@app.route('/rentals', methods=['POST'])
+def add_rental():
+
+    try:
+        data = request.get_json()
+
+        print("DATA RECEIVED:", data)
+
+        customer_name = data['customer_name']
+        car_model = data['car_model']
+        rental_days = data['rental_days']
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        query = """
+        INSERT INTO rentals
+        (customer_name, car_model, rental_days)
+        VALUES (%s, %s, %s)
+        """
+
+        cursor.execute(query, (
+            customer_name,
+            car_model,
+            rental_days
+        ))
+
         conn.commit()
-        cur.close()
-        conn.close()
-        print("Database berhasil diinisialisasi!")
-    except Exception as e:
-        print(f"Error initializing DB: {e}")
 
-@app.route('/rentals', methods=['GET', 'POST'])
-def handle_rentals():
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            "message": "Rental berhasil ditambahkan"
+        }), 201
+
+    except Exception as e:
+
+        print("POST ERROR:", str(e))
+
+        return jsonify({
+            "error": str(e)
+        }), 500
+
+
+# =========================
+# DELETE RENTAL
+# =========================
+
+@app.route('/rentals/<int:id>', methods=['DELETE'])
+def delete_rental(id):
+
     try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        if request.method == 'POST':
-            data = request.get_json()
-            durasi = int(data['durasi'])
-            total_harga = durasi * 5000
-            
-            # Kita sebutkan nama kolomnya secara eksplisit biar nggak bentrok
-            sql = "INSERT INTO rentals (nama_penyewa, nomor_ps, durasi, total_harga, status) VALUES (%s, %s, %s, %s, %s)"
-            val = (data['nama'], data['ps'], durasi, total_harga, 'Aktif')
-            
-            cur.execute(sql, val)
-            new_id = cur.lastrowid
-            conn.commit()
-            cur.close()
-            conn.close()
-            return jsonify({'id': new_id, 'nama': data['nama'], 'ps': data['ps'], 'durasi': durasi, 'total_harga': total_harga}), 201
-        
-        cur.execute('SELECT id, nama_penyewa, nomor_ps, durasi, total_harga, status FROM rentals ORDER BY id DESC')
-        rentals = [{'id': r[0], 'nama': r[1], 'ps': r[2], 'durasi': r[3], 'total_harga': r[4], 'status': r[5]} for r in cur.fetchall()]
-        cur.close()
-        conn.close()
-        return jsonify(rentals), 200
-    except Exception as e:
-        # Biar ketauan di Log Railway lu errornya apa
-        print(f"ERROR BANGET: {str(e)}") 
-        return jsonify({'error': str(e)}), 500
 
-@app.route('/stats', methods=['GET'])
-def get_stats():
-    try:
         conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute('SELECT COUNT(*), COALESCE(SUM(total_harga), 0) FROM rentals')
-        row = cur.fetchone()
-        total_rental = row[0]
-        total_pendapatan = row[1]
-        cur.close()
+        cursor = conn.cursor()
+
+        query = "DELETE FROM rentals WHERE id=%s"
+
+        cursor.execute(query, (id,))
+
+        conn.commit()
+
+        cursor.close()
         conn.close()
 
-        stats = {'total_rental': total_rental, 'total_pendapatan': int(total_pendapatan)}
-        return jsonify({'data': stats, 'source': 'database'}), 200
+        return jsonify({
+            "message": "Rental berhasil dihapus"
+        })
+
     except Exception as e:
-        print(f"Error getting stats: {e}")
-        return jsonify({'data': {'total_rental': 0, 'total_pendapatan': 0}}), 200
+
+        print("DELETE ERROR:", str(e))
+
+        return jsonify({
+            "error": str(e)
+        }), 500
+
+
+# =========================
+# RUN APP
+# =========================
 
 if __name__ == '__main__':
-    init_db()
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port, debug=True)
+
+    port = int(os.environ.get('PORT', 5000))
+
+    app.run(
+        host='0.0.0.0',
+        port=port
+    )
