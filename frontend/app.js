@@ -1,4 +1,4 @@
-const API_URL =  'https://tugas-cloud-production-a5b4.up.railway.app'
+const API_URL =  'https://tugas-cloud-production-b4bf.up.railway.app'
 
 let activePS = []
 
