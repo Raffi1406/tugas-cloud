@@ -4,22 +4,48 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rental PS 3 Genuk City</title>
+
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
     <div class="container">
+
         <h1>Rental PS 3 Genuk City</h1>
+
         <div id="stats-container"></div>
-        
+
         <div class="input-group">
-            <input type="text" id="nama-input" placeholder="Nama Penyewa">
-            <input type="number" id="ps-input" placeholder="Nomor PS (1-10)">
-            <input type="number" id="durasi-input" placeholder="Durasi (Jam)">
-            <button onclick="addRental()">Sewa Sekarang</button>
+
+            <input
+                type="text"
+                id="nama-input"
+                placeholder="Nama Penyewa"
+            >
+
+            <input
+                type="number"
+                id="ps-input"
+                placeholder="Nomor PS (1-10)"
+            >
+
+            <input
+                type="number"
+                id="durasi-input"
+                placeholder="Durasi (Jam)"
+            >
+
+            <button onclick="addRental()">
+                Sewa Sekarang
+            </button>
+
         </div>
 
         <ul id="rental-list"></ul>
+
     </div>
+
     <script src="app.js"></script>
+
 </body>
 </html>

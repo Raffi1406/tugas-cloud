@@ -7,7 +7,7 @@ app = Flask(__name__)
 CORS(app)
 
 # =========================
-# DATABASE CONFIG RAILWAY
+# DATABASE CONFIG
 # =========================
 
 DB_HOST = os.getenv("MYSQLHOST")
@@ -16,69 +16,60 @@ DB_PASSWORD = os.getenv("MYSQLPASSWORD")
 DB_NAME = os.getenv("MYSQLDATABASE")
 DB_PORT = int(os.getenv("MYSQLPORT", 3306))
 
-
 # =========================
 # DATABASE CONNECTION
 # =========================
 
 def get_db_connection():
-    try:
-        conn = pymysql.connect(
-            host=DB_HOST,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            database=DB_NAME,
-            port=DB_PORT,
-            cursorclass=pymysql.cursors.DictCursor
-        )
 
-        print("DATABASE CONNECTED")
-        return conn
-
-    except Exception as e:
-        print("DATABASE ERROR:", str(e))
-        raise e
-
+    return pymysql.connect(
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME,
+        port=DB_PORT,
+        cursorclass=pymysql.cursors.DictCursor
+    )
 
 # =========================
-# HOME ROUTE
+# HOME
 # =========================
 
 @app.route('/')
 def home():
+
     return jsonify({
-        "message": "Backend Flask Railway Running"
+        "message": "Backend aktif"
     })
 
-
 # =========================
-# GET ALL RENTALS
+# GET RENTALS
 # =========================
 
 @app.route('/rentals', methods=['GET'])
 def get_rentals():
 
     try:
+
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        query = "SELECT * FROM rentals"
-        cursor.execute(query)
+        cursor.execute("SELECT * FROM rentals")
 
-        rentals = cursor.fetchall()
+        data = cursor.fetchall()
 
         cursor.close()
         conn.close()
 
-        return jsonify(rentals)
+        return jsonify(data)
 
     except Exception as e:
+
         print("GET ERROR:", str(e))
 
         return jsonify({
             "error": str(e)
         }), 500
-
 
 # =========================
 # ADD RENTAL
@@ -88,27 +79,32 @@ def get_rentals():
 def add_rental():
 
     try:
+
         data = request.get_json()
 
-        print("DATA RECEIVED:", data)
+        print("DATA:", data)
 
-        customer_name = data['customer_name']
-        car_model = data['car_model']
-        rental_days = data['rental_days']
+        nama = data['nama']
+        ps = data['ps']
+        durasi = data['durasi']
+
+        total_harga = int(durasi) * 5000
 
         conn = get_db_connection()
         cursor = conn.cursor()
 
         query = """
         INSERT INTO rentals
-        (customer_name, car_model, rental_days)
-        VALUES (%s, %s, %s)
+        (nama, ps, durasi, total_harga, status)
+        VALUES (%s, %s, %s, %s, %s)
         """
 
         cursor.execute(query, (
-            customer_name,
-            car_model,
-            rental_days
+            nama,
+            ps,
+            durasi,
+            total_harga,
+            'Aktif'
         ))
 
         conn.commit()
@@ -118,7 +114,7 @@ def add_rental():
 
         return jsonify({
             "message": "Rental berhasil ditambahkan"
-        }), 201
+        })
 
     except Exception as e:
 
@@ -127,7 +123,6 @@ def add_rental():
         return jsonify({
             "error": str(e)
         }), 500
-
 
 # =========================
 # DELETE RENTAL
@@ -162,6 +157,43 @@ def delete_rental(id):
             "error": str(e)
         }), 500
 
+# =========================
+# STATS
+# =========================
+
+@app.route('/stats', methods=['GET'])
+def stats():
+
+    try:
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        query = """
+        SELECT
+            COUNT(*) AS total_rental,
+            COALESCE(SUM(total_harga), 0) AS total_pendapatan
+        FROM rentals
+        """
+
+        cursor.execute(query)
+
+        data = cursor.fetchone()
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            "data": data
+        })
+
+    except Exception as e:
+
+        print("STATS ERROR:", str(e))
+
+        return jsonify({
+            "error": str(e)
+        }), 500
 
 # =========================
 # RUN APP
